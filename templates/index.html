@@ -1,0 +1,387 @@
+<!doctype html>
+<html lang="it">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<link rel="icon" href="data:,">
+<title>Spotify → MP3</title>
+<style>
+:root{
+  --bg:#121212; --card:#181818; --card2:#242424; --fg:#fff;
+  --muted:#a7a7a7; --green:#1db954; --red:#e05c5c;
+}
+*{box-sizing:border-box}
+body{margin:0;background:var(--bg);color:var(--fg);
+  font-family:-apple-system,BlinkMacSystemFont,"Segoe UI",Roboto,sans-serif}
+.wrap{max-width:900px;margin:0 auto;padding:30px 20px 90px}
+h1{font-size:27px;margin:0 0 6px}
+h1 .g{color:var(--green)}
+.sub{color:var(--muted);margin:0 0 20px;font-size:14px;line-height:1.5}
+.tabbar{display:flex;gap:6px;margin:0 0 18px;flex-wrap:wrap;align-items:center}
+.tab{display:flex;align-items:center;gap:8px;padding:8px 12px;border-radius:10px;
+  background:var(--card);color:var(--muted);cursor:pointer;font-size:13px;
+  border:1px solid transparent;max-width:240px;user-select:none}
+.tab.active{background:var(--card2);color:var(--fg);border-color:#3a3a3a}
+.tab .tname{white-space:nowrap;overflow:hidden;text-overflow:ellipsis;font-weight:600}
+.tab .tstat{font-size:11px;white-space:nowrap;color:var(--green)}
+.tab .tstat.err{color:var(--red)}
+.tab .tclose{border:0;background:none;color:var(--muted);cursor:pointer;
+  padding:0 2px;font-size:15px;line-height:1}
+.tab .tclose:hover{color:var(--red)}
+.tabadd{border:1px dashed #444;background:none;color:var(--muted);
+  border-radius:10px;padding:7px 13px;font-size:15px;font-weight:400}
+.tabadd:hover{color:var(--fg);border-color:var(--green)}
+.pane{display:none}
+.pane.active{display:block}
+.row{display:flex;gap:10px}
+input[type=text]{flex:1;padding:13px 16px;border-radius:10px;border:1px solid #333;
+  background:var(--card2);color:var(--fg);font-size:14px;outline:none;min-width:0}
+input[type=text]:focus{border-color:var(--green)}
+button{border:0;border-radius:10px;padding:13px 18px;font-size:14px;font-weight:600;
+  cursor:pointer;background:#333;color:#fff;white-space:nowrap}
+button:hover:not(:disabled){filter:brightness(1.15)}
+button.primary{background:var(--green);color:#000}
+button:disabled{opacity:.45;cursor:default}
+.banner{display:none;margin-top:14px;padding:12px 14px;border-radius:10px;
+  background:#3a1d1d;color:#ffb4b4;font-size:14px}
+.card{display:none;margin-top:24px;background:var(--card);border-radius:14px;padding:20px}
+.plhead{display:flex;gap:16px;align-items:center}
+.plhead img{width:86px;height:86px;border-radius:8px;object-fit:cover;background:#333}
+.plname{font-size:21px;font-weight:700;margin:0}
+.plmeta{color:var(--muted);font-size:13px;margin-top:5px}
+.actions{display:flex;gap:10px;margin-top:18px;flex-wrap:wrap}
+.pbar{height:9px;background:#333;border-radius:99px;overflow:hidden;margin-top:18px}
+.pbar>div{height:100%;width:0;background:var(--green);transition:width .6s}
+.pinfo{display:flex;justify-content:space-between;color:var(--muted);
+  font-size:13px;margin-top:8px}
+.folder{margin-top:10px;font-size:12px;color:var(--muted);
+  font-family:ui-monospace,SFMono-Regular,Menlo,monospace;word-break:break-all}
+table{width:100%;border-collapse:collapse;margin-top:12px}
+td{padding:8px 10px;border-top:1px solid #262626;font-size:14px;vertical-align:middle}
+tr:hover td{background:#1f1f1f}
+td.n{color:var(--muted);width:36px;text-align:right;font-variant-numeric:tabular-nums}
+td.c{width:48px}
+td.c img{width:38px;height:38px;border-radius:6px;object-fit:cover;background:#333;display:block}
+td.t .a{color:var(--muted);font-size:12px;margin-top:2px}
+td.d{color:var(--muted);width:54px;font-variant-numeric:tabular-nums}
+td.s{width:170px;text-align:right}
+.chip{display:inline-block;padding:3px 10px;border-radius:99px;font-size:12px;font-weight:600}
+.chip.pending,.chip.queued{background:#2a2a2a;color:var(--muted)}
+.chip.downloading,.chip.done{background:#12351f;color:var(--green)}
+.chip.error{background:#3a1d1d;color:var(--red)}
+.chip.choice{background:#3a2f14;color:#e8b64c}
+.pickbox{display:flex;gap:8px;margin-top:8px;align-items:center;flex-wrap:wrap}
+.pickbox select{max-width:360px;background:var(--card2);color:var(--fg);
+  border:1px solid #3a3a3a;border-radius:8px;padding:6px 8px;font-size:12px}
+.pickbox button{padding:6px 12px;font-size:12px;background:var(--green);color:#000}
+.pickbox a{color:var(--muted);font-size:12px}
+.pickbox a:hover{color:var(--fg)}
+a.dl{color:var(--green);text-decoration:none;font-size:12px;margin-left:8px}
+a.dl:hover{text-decoration:underline}
+.spin{display:inline-block;width:11px;height:11px;border:2px solid var(--green);
+  border-top-color:transparent;border-radius:50%;
+  animation:r 1s linear infinite;vertical-align:-1px;margin-right:6px}
+@keyframes r{to{transform:rotate(360deg)}}
+</style>
+</head>
+<body>
+<div class="wrap">
+  <h1>Spotify <span class="g">→ MP3</span></h1>
+  <p class="sub">Incolla il link di una playlist Spotify: i brani vengono cercati su
+    YouTube e salvati sul tuo computer come MP3 320&nbsp;kbps con titolo, artista e
+    copertina. Apri più schede col pulsante <b>+</b> per scaricare più playlist
+    in parallelo. Solo per uso personale.</p>
+
+  <div class="tabbar" id="tabbar">
+    <button id="tabAdd" class="tabadd" title="Nuova scheda" onclick="addTab()">＋ scheda</button>
+  </div>
+
+  <div id="panes"></div>
+</div>
+
+<template id="paneTpl">
+  <div class="pane">
+    <div class="row">
+      <input class="url" type="text" spellcheck="false"
+        placeholder="https://open.spotify.com/playlist/…">
+      <button class="btnLoad primary">Carica playlist</button>
+    </div>
+    <div class="banner"></div>
+    <div class="card">
+      <div class="plhead">
+        <img class="plCover" alt="">
+        <div>
+          <p class="plname plName"></p>
+          <div class="plmeta plMeta"></div>
+        </div>
+      </div>
+      <div class="actions">
+        <button class="btnDl primary">Scarica tutto in MP3</button>
+        <button class="btnStop" style="display:none">Ferma</button>
+        <button class="btnFolder">Apri cartella</button>
+        <a class="btnZip" style="display:none"><button>Scarica ZIP</button></a>
+      </div>
+      <div class="pbar"><div class="pfill"></div></div>
+      <div class="pinfo"><span class="pText"></span><span class="pEta"></span></div>
+      <div class="folder"></div>
+      <table class="tbl"><tbody></tbody></table>
+    </div>
+  </div>
+</template>
+
+<script>
+const LABEL = {pending:"in coda", queued:"in coda", downloading:"scarico…",
+               done:"✓ fatto", error:"✗ errore", choice:"scegli tu ↓"};
+const DEFAULT_URL = "https://open.spotify.com/playlist/4DeEDJ04ejoFcEcJQvEhaq?si=09fd9363dc174f09";
+
+const esc = s => String(s ?? "").replace(/[&<>"']/g,
+  c => ({"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;","'":"&#39;"}[c]));
+const fmtDur = s => Math.floor(s/60) + ":" + String(s%60).padStart(2,"0");
+
+async function post(path, body){
+  const r = await fetch(path, {method:"POST",
+    headers:{"Content-Type":"application/json"},
+    body:JSON.stringify(body || {})});
+  const j = await r.json().catch(() => ({}));
+  if(!r.ok) throw new Error(j.error || "Errore di comunicazione col server");
+  return j;
+}
+
+let tabs = [], active = null;
+
+class Tab {
+  constructor(sid){
+    this.sid = sid;
+    this.rowsBuilt = 0;
+    this.rows = [];
+    this.hist = [];
+    this.dead = false;
+
+    this.pane = document.getElementById("paneTpl")
+      .content.firstElementChild.cloneNode(true);
+    document.getElementById("panes").appendChild(this.pane);
+
+    this.btn = document.createElement("div");
+    this.btn.className = "tab";
+    this.btn.innerHTML = '<span class="tname">Nuova scheda</span>' +
+      '<span class="tstat"></span>' +
+      '<button class="tclose" title="Chiudi scheda">×</button>';
+    this.btn.addEventListener("click", () => activate(this));
+    this.btn.querySelector(".tclose").addEventListener("click", e => {
+      e.stopPropagation(); closeTab(this);
+    });
+    document.getElementById("tabbar")
+      .insertBefore(this.btn, document.getElementById("tabAdd"));
+
+    this.q(".url").value = DEFAULT_URL;
+    this.q(".url").addEventListener("keydown",
+      e => { if(e.key === "Enter") this.loadPl(); });
+    this.q(".btnLoad").addEventListener("click", () => this.loadPl());
+    this.q(".btnDl").addEventListener("click", () => this.startDl());
+    this.q(".btnStop").addEventListener("click", () => this.stopDl());
+    this.q(".btnFolder").addEventListener("click", () => this.openFolder());
+    this.q(".btnZip").href = `/api/${sid}/zip`;
+  }
+  q(sel){ return this.pane.querySelector(sel); }
+  banner(msg){
+    const b = this.q(".banner");
+    if(msg){ b.textContent = msg; b.style.display = "block"; }
+    else b.style.display = "none";
+  }
+  async loadPl(){
+    try{
+      this.banner(); this.rowsBuilt = 0;
+      await post(`/api/${this.sid}/load`, {url: this.q(".url").value});
+      this.refresh();
+    }catch(e){ this.banner(e.message); }
+  }
+  async startDl(){
+    try{
+      this.banner(); this.hist = [];
+      await post(`/api/${this.sid}/download`);
+      this.refresh();
+    }catch(e){ this.banner(e.message); }
+  }
+  async stopDl(){ try{ await post(`/api/${this.sid}/stop`); }catch(e){} }
+  async openFolder(){ try{ await post(`/api/${this.sid}/open-folder`); }catch(e){} }
+
+  async refresh(){
+    if(this.dead) return;
+    let r;
+    try{ r = await fetch(`/api/${this.sid}/status`); }
+    catch(e){ return; }
+    if(r.status === 404){
+      this.dead = true;
+      this.banner("Scheda scaduta (server riavviato): ricarica la pagina.");
+      return;
+    }
+    let st;
+    try{ st = await r.json(); }catch(e){ return; }
+    this.render(st);
+  }
+
+  render(st){
+    this.st = st;
+    const loading = st.phase === "loading", dling = st.phase === "downloading";
+
+    const nChoice = st.songs.filter(x => x.status === "choice").length;
+    const name = st.playlist ? st.playlist.name : "Nuova scheda";
+    this.btn.querySelector(".tname").textContent = name;
+    const stat = this.btn.querySelector(".tstat");
+    stat.classList.toggle("err",
+      st.phase === "error" || (st.phase === "done" && st.errors > 0));
+    stat.textContent =
+      loading ? "carico…" :
+      dling ? (st.done + st.errors) + "/" + st.total :
+      st.phase === "error" ? "✗" :
+      st.phase === "done" ? (st.errors || nChoice ? "⚠" : "✓") : "";
+
+    this.q(".btnLoad").disabled = loading || dling;
+    this.q(".btnLoad").textContent = loading ? "Carico…" : "Carica playlist";
+    this.banner(st.phase === "error" || st.message ? st.message : "");
+
+    if(!st.songs.length){ this.q(".card").style.display = "none"; return; }
+    this.q(".card").style.display = "block";
+    this.q(".plName").textContent = st.playlist.name;
+    this.q(".plMeta").textContent = st.total + " brani";
+    if(st.playlist.cover) this.q(".plCover").src = st.playlist.cover;
+    this.q(".folder").textContent = "📁 " + st.folder;
+
+    const fin = st.done + st.errors, remaining = st.total - fin;
+    this.q(".pfill").style.width = (100 * fin / st.total) + "%";
+    this.q(".pText").textContent = st.done + " / " + st.total + " scaricati" +
+      (nChoice ? " · " + nChoice + " da scegliere" : "") +
+      (st.errors ? " · " + st.errors + " errori" : "");
+    this.eta(st, fin);
+
+    this.q(".btnDl").style.display = dling ? "none" : "";
+    this.q(".btnStop").style.display = dling ? "" : "none";
+    this.q(".btnDl").disabled = remaining === 0 && !st.errors;
+    this.q(".btnDl").textContent =
+      st.errors && remaining === 0 ? "Riprova gli errori" :
+      st.done > 0 && remaining > 0 ? "Scarica i rimanenti" : "Scarica tutto in MP3";
+    this.q(".btnZip").style.display = st.done > 0 ? "" : "none";
+
+    const tbody = this.q(".tbl").tBodies[0];
+    if(st.songs.length !== this.rowsBuilt){
+      tbody.innerHTML = "";
+      this.rows = [];
+      for(const s of st.songs){
+        const tr = tbody.insertRow();
+        tr.innerHTML =
+          `<td class="n">${s.i + 1}</td>` +
+          `<td class="c"><img loading="lazy" src="${esc(s.cover)}" alt=""></td>` +
+          `<td class="t">${esc(s.name)}<div class="a">${esc(s.artists)}</div></td>` +
+          `<td class="d">${fmtDur(s.duration)}</td>` +
+          `<td class="s"></td>`;
+        this.rows.push(tr);
+      }
+      this.rowsBuilt = st.songs.length;
+    }
+    for(const s of st.songs){
+      const tr = this.rows[s.i], cell = tr.cells[4];
+      let html = `<span class="chip ${s.status}" title="${esc(s.note)}">` +
+        (s.status === "downloading" ? '<span class="spin"></span>' : "") +
+        LABEL[s.status] +
+        (s.status === "done" && s.note ? ` (${esc(s.note)})` : "") +
+        `</span>`;
+      if(s.status === "done")
+        html += ` <a class="dl" href="/api/${this.sid}/file/${s.i}">salva</a>`;
+      if(cell.innerHTML !== html) cell.innerHTML = html;
+      this.pickbox(tr, s);
+    }
+  }
+
+  // Menu per scegliere a mano la versione giusta di un brano non trovato.
+  pickbox(tr, s){
+    const tcell = tr.cells[2];
+    let box = tcell.querySelector(".pickbox");
+    if(s.status !== "choice" || !(s.candidates || []).length){
+      if(box) box.remove();
+      return;
+    }
+    if(box) return;  // già costruito: non azzerare la selezione dell'utente
+    box = document.createElement("div");
+    box.className = "pickbox";
+    box.innerHTML =
+      `<select>` + s.candidates.map(c =>
+        `<option value="${esc(c.url)}">${esc(c.author)} — ${esc(c.name)}` +
+        ` (${fmtDur(c.duration)})</option>`).join("") + `</select>` +
+      `<a target="_blank" rel="noopener">ascolta</a>` +
+      `<button>Usa questa</button>`;
+    const sel = box.querySelector("select"), a = box.querySelector("a"),
+          btn = box.querySelector("button");
+    const upd = () => a.href = sel.value;
+    sel.addEventListener("change", upd); upd();
+    btn.addEventListener("click", async () => {
+      btn.disabled = true;
+      try{
+        await post(`/api/${this.sid}/choose`, {i: s.i, url: sel.value});
+        this.refresh();
+      }catch(e){ this.banner(e.message); btn.disabled = false; }
+    });
+    tcell.appendChild(box);
+  }
+
+  eta(st, fin){
+    const el = this.q(".pEta");
+    if(st.phase !== "downloading"){ el.textContent = ""; this.hist = []; return; }
+    this.hist.push({t: Date.now(), f: fin});
+    if(this.hist.length > 60) this.hist.shift();
+    const a = this.hist[0], b = this.hist[this.hist.length - 1];
+    if(b.f - a.f < 3 || b.t - a.t < 15000){ el.textContent = ""; return; }
+    const rate = (b.f - a.f) / ((b.t - a.t) / 1000);
+    const rem = (st.total - fin) / rate;
+    el.textContent = "~" + (rem > 90 ? Math.round(rem / 60) + " min" :
+      Math.round(rem) + " s") + " rimanenti";
+  }
+
+  remove(){
+    this.dead = true;
+    this.btn.remove();
+    this.pane.remove();
+  }
+}
+
+function activate(tab){
+  active = tab;
+  for(const t of tabs){
+    t.btn.classList.toggle("active", t === tab);
+    t.pane.classList.toggle("active", t === tab);
+  }
+}
+
+async function addTab(){
+  try{
+    const j = await post("/api/tabs");
+    const t = new Tab(j.id);
+    tabs.push(t);
+    activate(t);
+    t.refresh();
+  }catch(e){ alert(e.message); }
+}
+
+async function closeTab(tab){
+  if(tab.st && tab.st.phase === "downloading" &&
+     !confirm("Il download è in corso: chiudere comunque la scheda?")) return;
+  try{ await fetch(`/api/tabs/${tab.sid}`, {method:"DELETE"}); }catch(e){}
+  tabs = tabs.filter(t => t !== tab);
+  tab.remove();
+  if(!tabs.length) await addTab();
+  else if(active === tab) activate(tabs[tabs.length - 1]);
+}
+
+async function init(){
+  let ids = [];
+  try{ ids = (await (await fetch("/api/tabs")).json()).tabs || []; }
+  catch(e){}
+  for(const sid of ids) tabs.push(new Tab(sid));
+  if(!tabs.length) await addTab();
+  else activate(tabs[0]);
+  tabs.forEach(t => t.refresh());
+  setInterval(() => tabs.forEach(t => t.refresh()), 1300);
+}
+window.addEventListener("load", init);
+</script>
+</body>
+</html>
